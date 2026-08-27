@@ -1,6 +1,10 @@
 package auth
 
 import (
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"time"
@@ -13,9 +17,22 @@ type Claims struct {
 	Role string `json:"role"`
 }
 
-func CreateToken(jwtSecret string, userID string, role string) (string, error) {
+func GenerateRefreshToken() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("generate refresh token failed (%w)", err)
+	}
+	return base64.RawURLEncoding.EncodeToString(b), nil
+}
+
+func HashRefreshToken(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
+}
+
+func CreateAccessToken(jwtSecret string, userID string, role string) (string, error) {
 	now := time.Now()
-	expireTime := now.Add(14 * 24 * time.Hour)
+	expireTime := now.Add(20 * time.Minute)
 
 	claims := Claims{
 		RegisteredClaims: jwt.RegisteredClaims{

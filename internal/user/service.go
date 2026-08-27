@@ -20,9 +20,9 @@ import (
 )
 
 type Service struct {
-	repo      *Repo
-	jwtSecret string
-	config    config.Config
+	repo        *Repo
+	refreshRepo *RefreshRepo
+	config      config.Config
 }
 
 type RegisterInput struct {
@@ -38,15 +38,16 @@ type LoginInput struct {
 }
 
 type AuthResult struct {
-	AccessToken string     `json:"accessToken"`
-	User        PublicUser `json:"user"`
+	AccessToken  string     `json:"accessToken"`
+	RefreshToken string     `json:"-"`
+	User         PublicUser `json:"user"`
 }
 
-func NewUserService(repo *Repo, jwtSecret string, config config.Config) *Service {
+func NewUserService(repo *Repo, config config.Config, refreshRepo *RefreshRepo) *Service {
 	return &Service{
-		repo:      repo,
-		jwtSecret: jwtSecret,
-		config:    config,
+		repo:        repo,
+		refreshRepo: refreshRepo,
+		config:      config,
 	}
 }
 
@@ -57,6 +58,83 @@ func NewUserService(repo *Repo, jwtSecret string, config config.Config) *Service
 
 // 	return re.MatchString(email)
 // }
+
+const refreshTokenTTL = 14 * 24 * time.Hour
+
+func (svc *Service) issueTokenPair(ctx context.Context, u User) (AuthResult, error) {
+	accessToken, err := auth.CreateAccessToken(svc.config.JwtSecret, u.ID.Hex(), u.Role)
+	if err != nil {
+		return AuthResult{}, err
+	}
+
+	refreshToken, err := auth.GenerateRefreshToken()
+	if err != nil {
+		return AuthResult{}, err
+	}
+
+	rt := RefreshToken{
+		ID:        primitive.NewObjectID(),
+		UserID:    u.ID,
+		TokenHash: auth.HashRefreshToken(refreshToken),
+		ExpiresAt: time.Now().Add(refreshTokenTTL),
+		Revoked:   false,
+		CreatedAt: time.Now(),
+	}
+
+	if err := svc.refreshRepo.Create(ctx, rt); err != nil {
+		return AuthResult{}, err
+	}
+
+	return AuthResult{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		User:         ToPublic(u),
+	}, nil
+}
+
+func (svc *Service) RefreshTokens(ctx context.Context, refreshToken string) (AuthResult, error) {
+	if refreshToken == "" {
+		return AuthResult{}, errors.New("missing refresh token")
+	}
+
+	tokenHash := auth.HashRefreshToken(refreshToken)
+
+	stored, err := svc.refreshRepo.FindByHash(ctx, tokenHash)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return AuthResult{}, mongo.ErrNoDocuments
+		}
+		return AuthResult{}, err
+	}
+
+	if stored.Revoked {
+		_ = svc.refreshRepo.RevokeAllForUser(ctx, stored.UserID)
+		return AuthResult{}, errors.New("refresh token revoked, please log in again")
+	}
+
+	if time.Now().After(stored.ExpiresAt) {
+		return AuthResult{}, errors.New("refresh token expired, please log in again")
+	}
+
+	if err := svc.refreshRepo.Revoke(ctx, tokenHash); err != nil {
+		return AuthResult{}, err
+	}
+
+	u, err := svc.repo.FetchSingleUser(ctx, stored.ID.Hex())
+	if err != nil {
+		return AuthResult{}, err
+	}
+
+	return svc.issueTokenPair(ctx, u)
+}
+
+func (svc *Service) Logout(ctx context.Context, refreshToken string) error {
+	if refreshToken == "" {
+		return nil
+	}
+
+	return svc.refreshRepo.Revoke(ctx, auth.HashRefreshToken(refreshToken))
+}
 
 func isValidCollegeEmail(email string) bool {
 	return strings.HasSuffix(email, "@glbitm.ac.in")
@@ -133,15 +211,12 @@ func (svc *Service) Register(ctx context.Context, input RegisterInput) (AuthResu
 		return AuthResult{}, err
 	}
 
-	token, err := auth.CreateToken(svc.jwtSecret, created.ID.String(), created.Role)
+	result, err := svc.issueTokenPair(ctx, created)
 	if err != nil {
 		return AuthResult{}, err
 	}
 
-	return AuthResult{
-		AccessToken: token,
-		User:        ToPublic(created),
-	}, nil
+	return result, nil
 }
 
 func (svc *Service) Login(ctx context.Context, input LoginInput) (AuthResult, error) {
@@ -164,15 +239,12 @@ func (svc *Service) Login(ctx context.Context, input LoginInput) (AuthResult, er
 		return AuthResult{}, errors.New("invalid credentials or wrong password")
 	}
 
-	token, err := auth.CreateToken(svc.jwtSecret, user.ID.Hex(), user.Role)
+	result, err := svc.issueTokenPair(ctx, user)
 	if err != nil {
 		return AuthResult{}, err
 	}
 
-	return AuthResult{
-		AccessToken: token,
-		User:        ToPublic(user),
-	}, nil
+	return result, nil
 }
 
 func (svc *Service) UpdateUser(ctx context.Context, user UpdateUserForm, userID string) (PublicUser, error) {

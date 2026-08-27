@@ -17,6 +17,51 @@ func NewUserHandler(svc *Service) *Handler {
 	}
 }
 
+func setRefreshCookie(c *gin.Context, token string, maxAgeSeconds int) {
+	c.SetCookie("refreshToken", token, maxAgeSeconds, "/", "", true, true)
+}
+
+func (h *Handler) Refresh(c *gin.Context) {
+	refreshToken, err := c.Cookie("refreshToken")
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "missing refresh token",
+			"ok": false,
+		})
+		return
+	}
+
+	output, err := h.svc.RefreshTokens(c.Request.Context(), refreshToken)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": err.Error(),
+			"ok": false,
+		})
+		return 
+	}
+
+	setRefreshCookie(c, output.AccessToken, 14*24*60*60)
+	c.JSON(http.StatusOK, output)
+}
+
+func (h *Handler) Logout(c *gin.Context) {
+	refreshToken, _ := c.Cookie("refreshToken")
+	if err := h.svc.Logout(c.Request.Context(), refreshToken); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+			"ok": false,
+		})
+
+		return
+	}
+
+	setRefreshCookie(c, "", -1)
+	c.JSON(http.StatusOK, gin.H{
+		"message": "logged out successfully",
+		"ok": true,
+	})
+}
+
 func (h *Handler) Register(c *gin.Context) {
 	var input RegisterInput
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -36,6 +81,7 @@ func (h *Handler) Register(c *gin.Context) {
 		return
 	}
 
+	setRefreshCookie(c, output.RefreshToken, 14*24*60*60)
 	c.JSON(http.StatusCreated, output)
 }
 
@@ -58,6 +104,7 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 
+	setRefreshCookie(c, output.RefreshToken, 14*24*60*60)
 	c.JSON(http.StatusOK, output)
 }
 

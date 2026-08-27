@@ -18,13 +18,16 @@ func NewRouter(app *app.App) *gin.Engine {
 	// health endpoint
 	r.GET("/health", health)
 
+	userRefreshRepo := user.NewRefreshRepo(app.DB)
 	userRepo := user.NewUserRepo(app.DB)
-	userSvc := user.NewUserService(userRepo, app.Config.JwtSecret, app.Config)
+	userSvc := user.NewUserService(userRepo, app.Config, userRefreshRepo)
 	userHandler := user.NewUserHandler(userSvc)
 
 	// unauth routes -> public access
-	r.POST("/register", userHandler.Register)
-	r.POST("/login", userHandler.Login)
+	r.POST("/auth/register", userHandler.Register)
+	r.POST("/auth/login", userHandler.Login)
+	r.POST("/auth/refresh", userHandler.Refresh)
+	r.POST("/auth/logout", userHandler.Logout)
 
 	// protected routes
 	userApis := r.Group("/user")
