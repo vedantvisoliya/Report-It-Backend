@@ -1,0 +1,26 @@
+# Environment
+.env
+
+# Air
+tmp/
+
+# Build files
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output
+dist/
+bin/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
