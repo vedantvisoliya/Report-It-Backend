@@ -2,6 +2,7 @@ package post
 
 import (
 	"net/http"
+	"reportit-api/internal/middleware"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -104,6 +105,14 @@ func (h *Handler) GetSinglePost(c *gin.Context) {
 
 func (h *Handler) RemovePost(c *gin.Context) {
 	postID := c.Param("id")
+	role, ok := middleware.GetUserRole(c)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "error getting role",
+			"ok":    false,
+		})
+		return
+	}
 
 	var userID DeletePostRequest
 	if err := c.ShouldBindJSON(&userID); err != nil {
@@ -114,7 +123,7 @@ func (h *Handler) RemovePost(c *gin.Context) {
 		return
 	}
 
-	post, err := h.svc.DeletePost(c.Request.Context(), postID, userID.UserID)
+	post, err := h.svc.DeletePost(c.Request.Context(), postID, userID.UserID, role)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),

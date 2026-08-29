@@ -162,8 +162,8 @@ func (svc *Service) GetSinglePost(ctx context.Context, postID string) (Post, err
 	return post, nil
 }
 
-func (svc *Service) DeletePost(ctx context.Context, postID string, userID string) (Post, error) {
-	post, err := svc.repo.Delete(ctx, postID, userID, svc.config)
+func (svc *Service) DeletePost(ctx context.Context, postID string, userID string, role string) (Post, error) {
+	post, err := svc.repo.Delete(ctx, postID, userID, svc.config, role)
 	if err != nil {
 		return Post{}, fmt.Errorf("%w", err)
 	}

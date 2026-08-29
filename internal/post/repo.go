@@ -77,7 +77,7 @@ func (r *Repo) FetchAllPosts(ctx context.Context, userID string, page int64, lim
 	return posts, totalPosts, nil
 }
 
-func (r *Repo) Delete(ctx context.Context, postID string, userID string, config config.Config) (Post, error) {
+func (r *Repo) Delete(ctx context.Context, postID string, userID string, config config.Config, role string) (Post, error) {
 	postObjectID, err := primitive.ObjectIDFromHex(postID)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
@@ -92,7 +92,9 @@ func (r *Repo) Delete(ctx context.Context, postID string, userID string, config 
 	}
 
 	if existingPost.PostedByID.Hex() != userID {
-		return Post{}, errors.New("unauthorized request for deleting post")
+		if role != "admin" {
+			return Post{}, errors.New("unauthorized request for deleting post")
+		}
 	}
 
 	filter := bson.M{

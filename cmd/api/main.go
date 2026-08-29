@@ -6,8 +6,13 @@ import (
 	"log"
 	"net/http"
 	"reportit-api/internal/app"
+	"reportit-api/internal/db"
 	"reportit-api/internal/httpserver"
 	"time"
+)
+
+const (
+	ReportitOTPCol = "reportit_otp"
 )
 
 func main() {
@@ -15,6 +20,16 @@ func main() {
 	app, err := app.StartApp(ctx)
 	if err != nil {
 		log.Fatalf("Startup failed: %v", err)
+	}
+
+	err = db.EnsureEmailIndexes(app.DB.Collection(ReportitOTPCol))
+	if err != nil {
+		log.Fatalf("failed to create email indexex: %v", err)
+	}
+
+	err = db.EnsureOTPIndexes(app.DB.Collection(ReportitOTPCol))
+	if err != nil {
+		log.Fatalf("failed to create otp indexex: %v", err)
 	}
 
 	defer func() {

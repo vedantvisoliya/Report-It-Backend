@@ -6,6 +6,7 @@ import (
 	"reportit-api/internal/config"
 	"time"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -42,4 +43,29 @@ func Disconnet(ctx context.Context, client *mongo.Client) error {
 	defer cancel()
 
 	return client.Disconnect(disconnetCtx)
+}
+
+func EnsureOTPIndexes(col *mongo.Collection) error {
+	indexModel := mongo.IndexModel{
+		Keys:    bson.D{{Key: "expiresAt", Value: 1}},
+		Options: options.Index().SetExpireAfterSeconds(0),
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	_, err := col.Indexes().CreateOne(ctx, indexModel)
+	return err
+}
+
+func EnsureEmailIndexes(col *mongo.Collection) error {
+	indexModel := mongo.IndexModel{
+		Keys: bson.D{{Key: "email", Value: 1}},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	_, err := col.Indexes().CreateOne(ctx, indexModel)
+	return err
 }

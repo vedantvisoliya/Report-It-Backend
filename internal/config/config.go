@@ -15,6 +15,7 @@ type Config struct {
 	SupabaseURL        string
 	SupabaseServiceKey string
 	SupabaseBucket     string
+	GmailAppPassword   string
 }
 
 func extractEnv(key string) (string, error) {
@@ -65,6 +66,11 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("%w", err)
 	}
 
+	gmailAppPassword, err := extractEnv("GMAIL_APP_PASSWORD")
+	if err != nil {
+		return Config{}, fmt.Errorf("%w", err)
+	}
+
 	return Config{
 		MongoURI:           mongoURI,
 		MongoDB:            mongoDB,
@@ -73,5 +79,6 @@ func Load() (Config, error) {
 		SupabaseURL:        supabaseURL,
 		SupabaseServiceKey: supabaseServiceKey,
 		SupabaseBucket:     supabaseBucket,
+		GmailAppPassword:   gmailAppPassword,
 	}, nil
 }
