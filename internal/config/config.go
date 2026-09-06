@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/joho/godotenv"
@@ -27,9 +28,15 @@ func extractEnv(key string) (string, error) {
 }
 
 func Load() (Config, error) {
+	// .env is optional — locally it provides variables, but in Docker/Render/Railway
+	// the real env vars are injected directly, so no .env file will exist there.
 	if err := godotenv.Load(); err != nil {
-		return Config{}, fmt.Errorf("failed to load .env -> %w", err)
+		log.Println("no .env file found, relying on system environment variables")
 	}
+
+	// if err := godotenv.Load(); err != nil {
+	// 	return Config{}, fmt.Errorf("failed to load .env -> %w", err)
+	// }
 
 	mongoURI, err := extractEnv("MONGO_URI")
 	if err != nil {
