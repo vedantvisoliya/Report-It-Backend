@@ -15,6 +15,7 @@ type Post struct {
 	ImageURL    string             `bson:"imageUrl,omitempty" json:"imageUrl"`
 	PostType    string             `bson:"postType" json:"postType"`
 	EditHistory []UpdatePost       `bson:"editHistory,omitempty" json:"editHistory"`
+	IsAnonymous bool               `bson:"isAnonymous" json:"isAnonymous"`
 	CreatedAt   time.Time          `bson:"createdAt" json:"createdAt"`
 	UpdatedAt   time.Time          `bson:"updatedAt" json:"updatedAt"`
 }

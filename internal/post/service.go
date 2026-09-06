@@ -27,6 +27,7 @@ type CreatePostForm struct {
 	Title       string                `form:"title" binding:"required"`
 	Description string                `form:"description" binding:"required"`
 	PostType    string                `form:"postType" binding:"required"`
+	IsAnonymous bool                  `form:"isAnonymous"`
 	Image       *multipart.FileHeader `form:"image"`
 }
 
@@ -66,13 +67,9 @@ func (svc *Service) CreatePost(ctx context.Context, input CreatePostForm, userID
 
 	if input.Image != nil {
 
-		if input.Image.Header.Get("Content-Type") != "image/jpeg" {
-			return Post{}, errors.New("only jpeg images are accepted")
-		}
-
-		file, err := input.Image.Open()
+		file, _, err := utils.ValidateImageType(input.Image)
 		if err != nil {
-			return Post{}, fmt.Errorf("failed to read image (%w)", err)
+			return Post{}, err
 		}
 
 		img, _, err := image.Decode(file)
@@ -112,6 +109,7 @@ func (svc *Service) CreatePost(ctx context.Context, input CreatePostForm, userID
 		Description: descp,
 		ImageURL:    imageURL,
 		PostType:    postType,
+		IsAnonymous: input.IsAnonymous,
 		CreatedAt:   time.Now().UTC(),
 		UpdatedAt:   time.Now().UTC(),
 	}
@@ -124,7 +122,7 @@ func (svc *Service) CreatePost(ctx context.Context, input CreatePostForm, userID
 	return post, nil
 }
 
-func (svc *Service) GetAllPosts(ctx context.Context, page int64, limit int64, userID string) (*PaginatedAllPosts, error) {
+func (svc *Service) GetAllUserPosts(ctx context.Context, page int64, limit int64, userID string, isAnonymous bool) (*PaginatedAllPosts, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -137,7 +135,36 @@ func (svc *Service) GetAllPosts(ctx context.Context, page int64, limit int64, us
 		limit = 100
 	}
 
-	posts, totalPosts, err := svc.repo.FetchAllPosts(ctx, userID, page, limit)
+	posts, totalPosts, err := svc.repo.FetchAllUserPosts(ctx, userID, page, limit, isAnonymous)
+	if err != nil {
+		return &PaginatedAllPosts{}, err
+	}
+
+	totalPages := int64(math.Ceil(float64(totalPosts) / float64(limit)))
+
+	return &PaginatedAllPosts{
+		Data:       posts,
+		Page:       page,
+		Limit:      limit,
+		TotalPosts: totalPosts,
+		TotalPages: totalPages,
+	}, nil
+}
+
+func (svc *Service) GetAllPosts(ctx context.Context, page int64, limit int64) (*PaginatedAllPosts, error) {
+	if page < 1 {
+		page = 1
+	}
+
+	if limit < 1 {
+		limit = 1
+	}
+
+	if limit > 100 {
+		limit = 100
+	}
+
+	posts, totalPosts, err := svc.repo.FetchAllPosts(ctx, page, limit)
 	if err != nil {
 		return &PaginatedAllPosts{}, err
 	}
@@ -192,13 +219,9 @@ func (svc *Service) UpdatePost(ctx context.Context, postID string, updateForm Up
 
 	if updateForm.Image != nil {
 
-		if updateForm.Image.Header.Get("Content-Type") != "image/jpeg" {
-			return Post{}, errors.New("only jpeg images are accepted")
-		}
-
-		file, err := updateForm.Image.Open()
+		file, _, err := utils.ValidateImageType(updateForm.Image)
 		if err != nil {
-			return Post{}, fmt.Errorf("failed to read image (%w)", err)
+			return Post{}, err
 		}
 
 		img, _, err := image.Decode(file)

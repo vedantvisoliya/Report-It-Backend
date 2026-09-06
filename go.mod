@@ -10,8 +10,6 @@ require (
 	golang.org/x/crypto v0.55.0
 )
 
-require github.com/resend/resend-go/v4 v4.2.0 // indirect
-
 require (
 	github.com/bytedance/gopkg v0.1.3 // indirect
 	github.com/bytedance/sonic v1.15.0 // indirect

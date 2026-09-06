@@ -54,8 +54,9 @@ func NewRouter(app *app.App) *gin.Engine {
 	postApis := r.Group("/post")
 	postApis.Use(middleware.AuthRequired(app.Config.JwtSecret))
 	{
+		postApis.GET("", postHandler.GetAllPosts)
 		postApis.POST("/:id", postHandler.CreatePost)
-		postApis.GET("user/:id", postHandler.GetAllUserPosts)
+		postApis.GET("/user/:id", postHandler.GetAllUserPosts)
 		postApis.DELETE("/:id", postHandler.RemovePost)
 		postApis.PATCH("/:id", postHandler.UpdatePost)
 		postApis.GET("/:id", postHandler.GetSinglePost)

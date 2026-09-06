@@ -30,6 +30,13 @@ func (h *Handler) CreatePost(c *gin.Context) {
 		return
 	}
 
+	// // TEMP DEBUG — remove after diagnosing
+	// if err := c.Request.ParseMultipartForm(32 << 20); err == nil {
+	// 	for key, values := range c.Request.MultipartForm.Value {
+	// 		fmt.Printf("RAW FORM KEY: %q VALUES: %v\n", key, values)
+	// 	}
+	// }
+
 	post, err := h.svc.CreatePost(c.Request.Context(), form, userID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -45,8 +52,61 @@ func (h *Handler) CreatePost(c *gin.Context) {
 	})
 }
 
+func (h *Handler) GetAllPosts(c *gin.Context) {
+	page, err := strconv.ParseInt(
+		c.DefaultQuery("Page", "1"),
+		10,
+		64,
+	)
+
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "page must be a valid integer",
+			"ok":    false,
+		})
+		return
+	}
+
+	limit, err := strconv.ParseInt(
+		c.DefaultQuery("limit", "10"),
+		10,
+		64,
+	)
+
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "limit must be a valid integer",
+			"ok":    false,
+		})
+		return
+	}
+
+	data, err := h.svc.GetAllPosts(c.Request.Context(), page, limit)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "error fetching posts",
+			"ok":    false,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, data)
+}
+
 func (h *Handler) GetAllUserPosts(c *gin.Context) {
 	userID := c.Param("id")
+
+	isAnonymous, err := strconv.ParseBool(
+		c.DefaultQuery("anonymous", "false"),
+	)
+
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "anonymous must be boolean value",
+			"ok":    false,
+		})
+		return
+	}
 
 	page, err := strconv.ParseInt(
 		c.DefaultQuery("Page", "1"),
@@ -76,7 +136,7 @@ func (h *Handler) GetAllUserPosts(c *gin.Context) {
 		return
 	}
 
-	data, err := h.svc.GetAllPosts(c.Request.Context(), page, limit, userID)
+	data, err := h.svc.GetAllUserPosts(c.Request.Context(), page, limit, userID, isAnonymous)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "error fetching posts",

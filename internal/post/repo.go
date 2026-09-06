@@ -39,7 +39,8 @@ func (r *Repo) Create(ctx context.Context, post Post) (Post, error) {
 	return post, nil
 }
 
-func (r *Repo) FetchAllPosts(ctx context.Context, userID string, page int64, limit int64) ([]Post, int64, error) {
+func (r *Repo) FetchAllUserPosts(ctx context.Context, userID string, page int64, limit int64, isAnonymous bool) ([]Post, int64, error) {
+	var filter bson.M
 	objectID, err := primitive.ObjectIDFromHex(userID)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
@@ -48,8 +49,9 @@ func (r *Repo) FetchAllPosts(ctx context.Context, userID string, page int64, lim
 		return []Post{}, 0, fmt.Errorf("invalid post id (%w)", err)
 	}
 
-	filter := bson.M{
-		"postedBy": objectID,
+	filter = bson.M{
+		"postedBy":    objectID,
+		"isAnonymous": isAnonymous,
 	}
 
 	totalPosts, err := r.col.CountDocuments(ctx, filter)
@@ -203,4 +205,31 @@ func (r *Repo) Update(ctx context.Context, postID string, post UpdatePost) (Post
 	}
 
 	return updatedPost, nil
+}
+
+func (r *Repo) FetchAllPosts(ctx context.Context, page int64, limit int64) ([]Post, int64, error) {
+	filter := bson.M{}
+	totalPosts, err := r.col.CountDocuments(ctx, filter)
+	if err != nil {
+		return []Post{}, 0, err
+	}
+
+	skip := (page - 1) * limit
+
+	opts := options.Find().SetSkip(skip).SetLimit(limit).SetSort(bson.D{{Key: "created_at", Value: -1}})
+
+	cursor, err := r.col.Find(ctx, filter, opts)
+	if err != nil {
+		return []Post{}, 0, fmt.Errorf("error fetching the posts (%w)", err)
+	}
+
+	defer cursor.Close(ctx)
+
+	var posts []Post
+
+	if err := cursor.All(ctx, &posts); err != nil {
+		return []Post{}, 0, fmt.Errorf("error decoding the posts (%w)", err)
+	}
+
+	return posts, totalPosts, nil
 }
