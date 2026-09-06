@@ -20,6 +20,7 @@ func NewRouter(app *app.App) *gin.Engine {
 
 	// health endpoint
 	r.GET("/health", health)
+	r.GET("", health)
 
 	// swagger ui
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
