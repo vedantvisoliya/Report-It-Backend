@@ -23,7 +23,7 @@ const (
 //
 // @contact.name                Report It API Support
 //
-// @host                        localhost:8080
+// @host                        localhost:5000
 // @BasePath                    /
 // @schemes                     http https
 //
