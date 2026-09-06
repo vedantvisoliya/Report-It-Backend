@@ -16,6 +16,18 @@ func NewOTPHandler(svc *Service) *Handler {
 	}
 }
 
+// SendOTP godoc
+//
+// @Summary      Send an email OTP
+// @Description  Generates a one time password for the given email address and delivers it over email.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body      emailotp.SendReq  true  "Target email address"
+// @Success      200      {object}  map[string]interface{}  "OTP send successfully"
+// @Failure      400      {object}  map[string]interface{}  "invalid JSON body or missing email"
+// @Failure      500      {object}  map[string]interface{}  "generating or sending the OTP failed"
+// @Router       /auth/send-otp [post]
 func (h *Handler) SendOTP(c *gin.Context) {
 	var sendReq SendReq
 	if err := c.ShouldBindJSON(&sendReq); err != nil {
@@ -41,6 +53,17 @@ func (h *Handler) SendOTP(c *gin.Context) {
 	})
 }
 
+// VerifyOTP godoc
+//
+// @Summary      Verify an email OTP
+// @Description  Verifies the one time password previously sent to the given email address.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body      emailotp.VerifyReq  true  "Email address and OTP"
+// @Success      202      {object}  map[string]interface{}  "OTP verified successfully"
+// @Failure      400      {object}  map[string]interface{}  "invalid JSON body, or expired or incorrect OTP"
+// @Router       /auth/verify-otp [post]
 func (h *Handler) VerifyOTP(c *gin.Context) {
 	var verifyReq VerifyReq
 	if err := c.ShouldBindJSON(&verifyReq); err != nil {

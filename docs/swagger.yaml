@@ -1,0 +1,870 @@
+basePath: /
+definitions:
+  emailotp.SendReq:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
+  emailotp.VerifyReq:
+    properties:
+      email:
+        type: string
+      otp:
+        type: string
+    required:
+    - email
+    - otp
+    type: object
+  post.DeletePostRequest:
+    properties:
+      userID:
+        type: string
+    required:
+    - userID
+    type: object
+  post.PaginatedAllPosts:
+    properties:
+      limit:
+        type: integer
+      page:
+        type: integer
+      posts:
+        items:
+          $ref: '#/definitions/post.Post'
+        type: array
+      totalPages:
+        type: integer
+      totalPosts:
+        type: integer
+    type: object
+  post.Post:
+    properties:
+      createdAt:
+        type: string
+      description:
+        type: string
+      editHistory:
+        items:
+          $ref: '#/definitions/post.UpdatePost'
+        type: array
+      id:
+        type: string
+      imageUrl:
+        type: string
+      isAnonymous:
+        type: boolean
+      postType:
+        type: string
+      postedBy:
+        type: string
+      title:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  post.UpdatePost:
+    properties:
+      description:
+        type: string
+      imageUrl:
+        type: string
+      postType:
+        type: string
+      title:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  user.AuthResult:
+    properties:
+      accessToken:
+        type: string
+      user:
+        $ref: '#/definitions/user.PublicUser'
+    type: object
+  user.LoginInput:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    type: object
+  user.PaginatedUser:
+    properties:
+      limit:
+        type: integer
+      page:
+        type: integer
+      totalPages:
+        type: integer
+      totalUsers:
+        type: integer
+      users:
+        items:
+          $ref: '#/definitions/user.PublicUser'
+        type: array
+    type: object
+  user.PublicUser:
+    properties:
+      branch:
+        type: string
+      createdAt:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      mobile:
+        type: string
+      name:
+        type: string
+      profileURL:
+        type: string
+      role:
+        type: string
+      updatedAt:
+        type: string
+      userName:
+        type: string
+      year:
+        type: integer
+    type: object
+  user.RegisterInput:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    name: Report It API Support
+  description: Backend API for Report It, a campus incident reporting platform. Students
+    register with their college email, verify it over an email OTP, and file reports
+    such as lost and found, harassment, ragging or canteen overcharging. Admins can
+    moderate users and posts.
+  title: Report It API
+  version: "1.0"
+paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticates a user with email and password, returns an access
+        token and sets the refresh token as an httpOnly cookie. The /authorized/admin/auth/login
+        variant additionally requires a valid bearer token belonging to an admin.
+      parameters:
+      - description: Login credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/user.LoginInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/user.AuthResult'
+        "400":
+          description: invalid JSON body or invalid credentials
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Log in
+      tags:
+      - auth
+  /auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: Revokes the refresh token carried by the refreshToken cookie and
+        clears that cookie. The /authorized/admin/auth/logout variant additionally
+        requires a valid bearer token belonging to an admin.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: logged out successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: revoking the refresh token failed
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Log out
+      tags:
+      - auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Reads the refresh token from the refreshToken httpOnly cookie,
+        revokes it, and issues a fresh access token together with a new cookie.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/user.AuthResult'
+        "401":
+          description: missing, revoked or expired refresh token
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Rotate the token pair
+      tags:
+      - auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Creates a Report It account. The email must be a college address
+        (@glbitm.ac.in) and the password must be 8-16 characters long and contain
+        at least one special character. On success the access token is returned in
+        the body and the refresh token is set as an httpOnly cookie.
+      parameters:
+      - description: Registration credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/user.RegisterInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/user.AuthResult'
+        "400":
+          description: invalid JSON body, email already registered, or email/password
+            validation failed
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Register a new user
+      tags:
+      - auth
+  /auth/send-otp:
+    post:
+      consumes:
+      - application/json
+      description: Generates a one time password for the given email address and delivers
+        it over email.
+      parameters:
+      - description: Target email address
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/emailotp.SendReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OTP send successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: invalid JSON body or missing email
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: generating or sending the OTP failed
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Send an email OTP
+      tags:
+      - auth
+  /auth/verify-otp:
+    post:
+      consumes:
+      - application/json
+      description: Verifies the one time password previously sent to the given email
+        address.
+      parameters:
+      - description: Email address and OTP
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/emailotp.VerifyReq'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: OTP verified successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: invalid JSON body, or expired or incorrect OTP
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Verify an email OTP
+      tags:
+      - auth
+  /authorized/admin/auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticates a user with email and password, returns an access
+        token and sets the refresh token as an httpOnly cookie. The /authorized/admin/auth/login
+        variant additionally requires a valid bearer token belonging to an admin.
+      parameters:
+      - description: Login credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/user.LoginInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/user.AuthResult'
+        "400":
+          description: invalid JSON body or invalid credentials
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Log in
+      tags:
+      - auth
+  /authorized/admin/auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: Revokes the refresh token carried by the refreshToken cookie and
+        clears that cookie. The /authorized/admin/auth/logout variant additionally
+        requires a valid bearer token belonging to an admin.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: logged out successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: revoking the refresh token failed
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Log out
+      tags:
+      - auth
+  /authorized/admin/remove-post/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Deletes the report post identified by the path id. The caller role
+        is taken from the access token and the owning user id is taken from the request
+        body. Registered both as a user route and as an admin route.
+      parameters:
+      - description: Post id (Mongo ObjectID hex)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Owning user id
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/post.DeletePostRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: message and the deleted post.Post
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: role missing from the context, invalid JSON body, or deletion
+            failed
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a post
+      tags:
+      - posts
+  /authorized/admin/remove-user/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Deletes the user identified by the path id and removes their profile
+        image from storage. Registered both as a user route and as an admin route.
+      parameters:
+      - description: User id (Mongo ObjectID hex)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: message and the deleted user.PublicUser
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: invalid user id, user not found, or profile image deletion
+            failed
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a user
+      tags:
+      - users
+  /health:
+    get:
+      description: Reports whether the API server is running and returns the current
+        UTC time.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: ok, message and server time
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Health check
+      tags:
+      - health
+  /post:
+    get:
+      consumes:
+      - application/json
+      description: Returns a paginated list of every report post. The page query parameter
+        is read as Page (capital P) and defaults to 1; limit defaults to 10 and is
+        clamped to the range 1-100.
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: Page
+        type: integer
+      - default: 10
+        description: Page size
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/post.PaginatedAllPosts'
+        "400":
+          description: Page or limit is not a valid integer, or error fetching posts
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List all posts
+      tags:
+      - posts
+  /post/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Deletes the report post identified by the path id. The caller role
+        is taken from the access token and the owning user id is taken from the request
+        body. Registered both as a user route and as an admin route.
+      parameters:
+      - description: Post id (Mongo ObjectID hex)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Owning user id
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/post.DeletePostRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: message and the deleted post.Post
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: role missing from the context, invalid JSON body, or deletion
+            failed
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a post
+      tags:
+      - posts
+    get:
+      consumes:
+      - application/json
+      description: Returns the report post identified by the path id.
+      parameters:
+      - description: Post id (Mongo ObjectID hex)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/post.Post'
+        "400":
+          description: invalid post id or post not found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get a single post
+      tags:
+      - posts
+    patch:
+      consumes:
+      - multipart/form-data
+      - application/x-www-form-urlencoded
+      description: Updates the report post identified by the path id. The payload
+        is bound as a form, so send it as multipart/form-data or application/x-www-form-urlencoded.
+        postType is required, and an optional replacement image is validated, resized,
+        compressed and uploaded to storage.
+      parameters:
+      - description: Post id (Mongo ObjectID hex)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Post title (max 100 characters)
+        in: formData
+        name: title
+        type: string
+      - description: Post description (max 5000 characters)
+        in: formData
+        name: description
+        type: string
+      - description: Report category
+        in: formData
+        name: postType
+        required: true
+        type: string
+      - description: Replacement image attachment
+        in: formData
+        name: image
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/post.Post'
+        "400":
+          description: invalid form body, validation failure, invalid image, upload
+            failure or update failed
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update a post
+      tags:
+      - posts
+    post:
+      consumes:
+      - multipart/form-data
+      - application/x-www-form-urlencoded
+      description: 'Creates a report (lost and found, harassment, ragging, canteen
+        overcharging, and so on) authored by the user in the path id. The payload
+        is bound as a form: title (max 100 characters), description (max 5000 characters)
+        and postType are required, and an optional image is validated, resized, compressed
+        and uploaded to storage.'
+      parameters:
+      - description: Author user id (Mongo ObjectID hex)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Post title (max 100 characters)
+        in: formData
+        name: title
+        required: true
+        type: string
+      - description: Post description (max 5000 characters)
+        in: formData
+        name: description
+        required: true
+        type: string
+      - description: Report category
+        in: formData
+        name: postType
+        required: true
+        type: string
+      - description: Publish the report anonymously
+        in: formData
+        name: isAnonymous
+        type: boolean
+      - description: Optional image attachment
+        in: formData
+        name: image
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: message and the created post.Post
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: invalid form body, validation failure, invalid image, upload
+            failure or invalid user id
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create a report post
+      tags:
+      - posts
+  /post/user/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Returns a paginated list of the posts authored by the user in the
+        path id, filtered by the anonymous flag. The page query parameter is read
+        as Page (capital P) and defaults to 1; limit defaults to 10 and is clamped
+        to the range 1-100.
+      parameters:
+      - description: Author user id (Mongo ObjectID hex)
+        in: path
+        name: id
+        required: true
+        type: string
+      - default: false
+        description: Return anonymous posts
+        in: query
+        name: anonymous
+        type: boolean
+      - default: 1
+        description: Page number
+        in: query
+        name: Page
+        type: integer
+      - default: 10
+        description: Page size
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/post.PaginatedAllPosts'
+        "400":
+          description: anonymous is not a boolean, Page or limit is not a valid integer,
+            or error fetching posts
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List the posts of one user
+      tags:
+      - posts
+  /user:
+    get:
+      consumes:
+      - application/json
+      description: Returns a paginated list of users. page defaults to 1 and limit
+        defaults to 10; the service clamps limit to the range 1-500.
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Page size
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/user.PaginatedUser'
+        "400":
+          description: page or limit is not a valid integer
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: error fetching users
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List users
+      tags:
+      - users
+  /user/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Deletes the user identified by the path id and removes their profile
+        image from storage. Registered both as a user route and as an admin route.
+      parameters:
+      - description: User id (Mongo ObjectID hex)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: message and the deleted user.PublicUser
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: invalid user id, user not found, or profile image deletion
+            failed
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a user
+      tags:
+      - users
+    get:
+      consumes:
+      - application/json
+      description: Returns the public profile of the user identified by the path id,
+        wrapped in a data field.
+      parameters:
+      - description: User id (Mongo ObjectID hex)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: data holds a user.PublicUser
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: invalid user id or user not found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get a single user
+      tags:
+      - users
+    put:
+      consumes:
+      - multipart/form-data
+      - application/x-www-form-urlencoded
+      description: Updates the editable profile fields of the user identified by the
+        path id. The payload is bound as a form, so send it as multipart/form-data
+        or application/x-www-form-urlencoded.
+      parameters:
+      - description: User id (Mongo ObjectID hex)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Profile image URL
+        in: formData
+        name: profileUrl
+        type: string
+      - description: Username
+        in: formData
+        name: userName
+        type: string
+      - description: Mobile number
+        in: formData
+        name: mobile
+        type: string
+      - description: Full name
+        in: formData
+        name: name
+        type: string
+      - description: Branch
+        in: formData
+        name: branch
+        type: string
+      - description: Year of study
+        in: formData
+        name: year
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/user.PublicUser'
+        "400":
+          description: invalid form body or update failed
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update a user profile
+      tags:
+      - users
+schemes:
+- http
+- https
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and the JWT access token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

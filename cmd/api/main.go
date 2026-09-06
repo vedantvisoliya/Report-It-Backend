@@ -9,12 +9,28 @@ import (
 	"reportit-api/internal/db"
 	"reportit-api/internal/httpserver"
 	"time"
+
+	_ "reportit-api/docs"
 )
 
 const (
 	ReportitOTPCol = "reportit_otp"
 )
 
+// @title                       Report It API
+// @version                     1.0
+// @description                 Backend API for Report It, a campus incident reporting platform. Students register with their college email, verify it over an email OTP, and file reports such as lost and found, harassment, ragging or canteen overcharging. Admins can moderate users and posts.
+//
+// @contact.name                Report It API Support
+//
+// @host                        localhost:8080
+// @BasePath                    /
+// @schemes                     http https
+//
+// @securityDefinitions.apikey  BearerAuth
+// @in                          header
+// @name                        Authorization
+// @description                 Type "Bearer" followed by a space and the JWT access token.
 func main() {
 	ctx := context.Background()
 	app, err := app.StartApp(ctx)

@@ -8,6 +8,8 @@ import (
 	"reportit-api/internal/user"
 
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 func NewRouter(app *app.App) *gin.Engine {
@@ -18,6 +20,9 @@ func NewRouter(app *app.App) *gin.Engine {
 
 	// health endpoint
 	r.GET("/health", health)
+
+	// swagger ui
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	otpRepo := emailotp.NewOTPRepo(app.DB)
 	otpService := emailotp.NewOTPService(otpRepo, app.Config.GmailAppPassword)
